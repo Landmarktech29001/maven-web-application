@@ -1,0 +1,41 @@
+node{
+    def MavenHome = '/var/lib/jenkins/tools/hudson.tasks.Maven_MavenInstallation/Maven3.8.6'
+   //def MavenHome = tool name : 'Maven3.8.6'
+    stage('1clonecode'){
+        git "https://github.com/tcmartin00001/maven-web-application"
+        //sh "gitclone https://github.com/tcmartin00001/maven-web-application"
+    }
+stage('2test&build'){
+    sh "${MavenHome}/bin/mvn clean package"
+   //bat "${MavenHome}/bin/mvn clean package"
+ }
+ stage('3CodeQuality'){
+     sh "${MavenHome}/bin/mvn sonar:sonar"
+ }
+ stage('4upload2nexus'){
+     sh "${MavenHome}/bin/mvn deploy"
+ }
+ stage('5deploy2uat'){
+ sh "echo 'deploy to uat'"
+ deploy adapters: [tomcat8(credentialsId: 'tmcredentials', path: '', url: 'http://34.227.192.211:8080/')], contextPath: null, war: 'target/*.war'
+ }
+ stage('6approvalgate'){
+     sh "echo 'ready for review'"
+     timeout (time:5, unit:'DAYS'){
+         input message: 'Application ready for deployment, please review and approve'
+     }
+ }
+ stage('7deploy2prod'){
+     sh "echo 'deploy to production'"
+     deploy adapters: [tomcat8(credentialsId: 'tmcredentials', path: '', url: 'http://34.227.192.211:8080/')], contextPath: null, war: 'target/*.war'
+ }
+ stage('8 email notification'){
+ emailext body: '''Hi Team,
+
+Please check build status.
+
+Thank you,
+
+TC''', recipientProviders: [buildUser(), developers()], subject: 'Build Status', to: 'stripeapp@stripe.com'
+ }
+}
